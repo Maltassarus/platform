@@ -35,7 +35,6 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: blog
       DB_SSLMODE: disable
-      JWT_SECRET: nbfMDrQ7xV0rVa5Qo1paArT/sQzgGT1nyYkJ0G7g2zQ=
       SERVER_PORT: 8080
       PUBLISH_CHECK_INTERVAL: 10
       WORKER_POOL_SIZE: 5
