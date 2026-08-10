@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"encoding/json"
@@ -45,7 +45,11 @@ func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	comment, err := h.commentService.Create(userID, postID, &req)
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, err.Error())
+		if err == service.ErrPostNotFound {
+			response.Error(w, http.StatusNotFound, err.Error())
+		} else {
+			response.Error(w, http.StatusBadRequest, err.Error())
+		}
 		return
 	}
 
@@ -63,7 +67,11 @@ func (h *CommentHandler) GetByPostID(w http.ResponseWriter, r *http.Request) {
 
 	comments, err := h.commentService.GetByPostID(postID)
 	if err != nil {
-		response.Error(w, http.StatusNotFound, err.Error())
+		if err == service.ErrPostNotFound {
+			response.Error(w, http.StatusNotFound, err.Error())
+		} else {
+			response.Error(w, http.StatusInternalServerError, "Failed to fetch comments")
+		}
 		return
 	}
 

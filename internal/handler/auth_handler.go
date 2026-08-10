@@ -30,7 +30,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userService.Register(&req)
 	if err != nil {
-		sendError(w, http.StatusBadRequest, err.Error())
+		switch err {
+		case service.ErrUserAlreadyExists:
+			sendError(w, http.StatusConflict, err.Error())
+		default:
+			sendError(w, http.StatusBadRequest, err.Error())
+		}
 		return
 	}
 
@@ -46,7 +51,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userService.Login(&req)
 	if err != nil {
-		sendError(w, http.StatusUnauthorized, err.Error())
+		if err == service.ErrInvalidCredentials || err == service.ErrUserNotFound {
+			sendError(w, http.StatusUnauthorized, "Invalid credentials")
+		} else {
+			sendError(w, http.StatusBadRequest, err.Error())
+		}
 		return
 	}
 

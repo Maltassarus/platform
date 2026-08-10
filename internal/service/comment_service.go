@@ -1,8 +1,6 @@
 package service
 
 import (
-	"errors"
-
 	"platform/internal/model"
 	"platform/internal/repository"
 )
@@ -29,7 +27,7 @@ func (s *CommentService) Create(userID, postID int, req *model.CreateCommentRequ
 		return nil, err
 	}
 	if post == nil {
-		return nil, errors.New("post not found")
+		return nil, ErrPostNotFound
 	}
 
 	comment := &model.Comment{
@@ -51,7 +49,7 @@ func (s *CommentService) GetByPostID(postID int) ([]model.Comment, error) {
 		return nil, err
 	}
 	if post == nil {
-		return nil, errors.New("post not found")
+		return nil, ErrPostNotFound
 	}
 
 	return s.commentRepo.GetByPostID(postID)

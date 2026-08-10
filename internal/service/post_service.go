@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"time"
 
 	"platform/internal/model"
@@ -49,7 +48,7 @@ func (s *PostService) GetByID(id int) (*model.Post, error) {
 		return nil, err
 	}
 	if post == nil {
-		return nil, errors.New("post not found")
+		return nil, ErrPostNotFound
 	}
 	return post, nil
 }
@@ -60,11 +59,11 @@ func (s *PostService) Update(userID, postID int, req *model.UpdatePostRequest) (
 		return nil, err
 	}
 	if post == nil {
-		return nil, errors.New("post not found")
+		return nil, ErrPostNotFound
 	}
 
 	if post.UserID != userID {
-		return nil, errors.New("you are not the author of this post")
+		return nil, ErrNotAuthor
 	}
 
 	if req.Title != "" {
@@ -87,11 +86,11 @@ func (s *PostService) Delete(userID, postID int) error {
 		return err
 	}
 	if post == nil {
-		return errors.New("post not found")
+		return ErrPostNotFound
 	}
 
 	if post.UserID != userID {
-		return errors.New("you are not the author of this post")
+		return ErrNotAuthor
 	}
 
 	return s.postRepo.Delete(postID)

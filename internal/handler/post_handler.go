@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"encoding/json"
@@ -54,8 +54,21 @@ func (h *PostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	post, err := h.postService.GetByID(id)
 	if err != nil {
-		response.Error(w, http.StatusNotFound, err.Error())
+		if err == service.ErrPostNotFound {
+			response.Error(w, http.StatusNotFound, err.Error())
+		} else {
+			response.Error(w, http.StatusInternalServerError, "Failed to fetch post")
+		}
 		return
+	}
+
+	// Черновики видны только автору
+	if post.Status == "draft" {
+		userID := context.GetUserID(r)
+		if userID == 0 || userID != post.UserID {
+			response.Error(w, http.StatusNotFound, "post not found")
+			return
+		}
 	}
 
 	response.Success(w, http.StatusOK, post)
@@ -83,7 +96,14 @@ func (h *PostHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	post, err := h.postService.Update(userID, postID, &req)
 	if err != nil {
-		response.Error(w, http.StatusForbidden, err.Error())
+		switch err {
+		case service.ErrPostNotFound:
+			response.Error(w, http.StatusNotFound, err.Error())
+		case service.ErrNotAuthor:
+			response.Error(w, http.StatusForbidden, err.Error())
+		default:
+			response.Error(w, http.StatusInternalServerError, "Failed to update post")
+		}
 		return
 	}
 
@@ -104,8 +124,16 @@ func (h *PostHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.postService.Delete(userID, postID); err != nil {
-		response.Error(w, http.StatusForbidden, err.Error())
+	err = h.postService.Delete(userID, postID)
+	if err != nil {
+		switch err {
+		case service.ErrPostNotFound:
+			response.Error(w, http.StatusNotFound, err.Error())
+		case service.ErrNotAuthor:
+			response.Error(w, http.StatusForbidden, err.Error())
+		default:
+			response.Error(w, http.StatusInternalServerError, "Failed to delete post")
+		}
 		return
 	}
 

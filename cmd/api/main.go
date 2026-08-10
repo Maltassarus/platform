@@ -10,22 +10,20 @@ import (
 	"syscall"
 	"time"
 
+	"platform/internal/config"
 	"platform/internal/handler"
 	"platform/internal/middleware"
 	"platform/internal/repository"
+	"platform/internal/scheduler"
 	"platform/internal/service"
 	"platform/pkg/auth"
 	"platform/pkg/database"
-
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
-	}
+	cfg := config.Load()
 
-	db, err := database.Connect()
+	db, err := database.Connect(cfg)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -43,12 +41,17 @@ func main() {
 	postService := service.NewPostService(postRepo)
 	commentService := service.NewCommentService(commentRepo, postRepo)
 
-	jwtManager := auth.NewJWTManager(os.Getenv("JWT_SECRET"))
+	jwtManager := auth.NewJWTManager(cfg.JWTSecret)
 
 	authHandler := handler.NewAuthHandler(userService, jwtManager)
 	postHandler := handler.NewPostHandler(postService)
 	commentHandler := handler.NewCommentHandler(commentService)
 	healthHandler := handler.NewHealthHandler(db)
+
+	publishInterval := time.Duration(cfg.PublishCheckInterval) * time.Second
+	sched := scheduler.NewScheduler(postService, publishInterval, cfg.WorkerPoolSize)
+	sched.Start()
+	defer sched.Stop()
 
 	mux := http.NewServeMux()
 
@@ -56,8 +59,9 @@ func main() {
 	mux.HandleFunc("/api/register", authHandler.Register)
 	mux.HandleFunc("/api/login", authHandler.Login)
 
+	authMW := middleware.NewAuthMiddleware(jwtManager)
+
 	mux.HandleFunc("/api/posts", func(w http.ResponseWriter, r *http.Request) {
-		authMW := middleware.NewAuthMiddleware(jwtManager)
 		switch r.Method {
 		case http.MethodGet:
 			postHandler.GetAll(w, r)
@@ -69,15 +73,13 @@ func main() {
 	})
 
 	mux.HandleFunc("/api/posts/", func(w http.ResponseWriter, r *http.Request) {
-		authMW := middleware.NewAuthMiddleware(jwtManager)
-		path := strings.TrimPrefix(r.URL.Path, "/api/posts/")
-		parts := strings.Split(path, "/")
+		path := r.URL.Path[len("/api/posts/"):]
+		parts := []string{}
+		if path != "" {
+			parts = strings.Split(path, "/")
+		}
 
 		if len(parts) > 1 && parts[1] == "comments" {
-			if err != nil {
-				http.Error(w, "Invalid post ID", http.StatusBadRequest)
-				return
-			}
 			switch r.Method {
 			case http.MethodGet:
 				commentHandler.GetByPostID(w, r)
@@ -104,13 +106,8 @@ func main() {
 	loggingMiddleware := middleware.LoggingMiddleware
 	recoveryMiddleware := middleware.RecoveryMiddleware
 
-	port := os.Getenv("SERVER_PORT")
-	if port == "" {
-		port = "8080"
-	}
-
 	server := &http.Server{
-		Addr:         ":" + port,
+		Addr:         ":" + cfg.ServerPort,
 		Handler:      recoveryMiddleware(loggingMiddleware(mux)),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -118,7 +115,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("Server starting on port %s", port)
+		log.Printf("Server starting on port %s", cfg.ServerPort)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed: %v", err)
 		}

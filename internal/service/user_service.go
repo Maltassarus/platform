@@ -1,8 +1,6 @@
 package service
 
 import (
-	"errors"
-
 	"platform/internal/model"
 	"platform/internal/repository"
 	"platform/pkg/auth"
@@ -28,7 +26,7 @@ func (s *UserService) Register(req *model.RegisterRequest) (*model.User, error) 
 		return nil, err
 	}
 	if existingUser != nil {
-		return nil, errors.New("user with this email already exists")
+		return nil, ErrUserAlreadyExists
 	}
 
 	hashedPassword, err := auth.HashPassword(req.Password)
@@ -58,11 +56,11 @@ func (s *UserService) Login(req *model.LoginRequest) (*model.User, error) {
 		return nil, err
 	}
 	if user == nil {
-		return nil, errors.New("invalid credentials")
+		return nil, ErrUserNotFound
 	}
 
 	if err := auth.CheckPassword(req.Password, user.Password); err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, ErrInvalidCredentials
 	}
 
 	return user, nil

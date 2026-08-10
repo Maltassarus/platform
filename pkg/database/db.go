@@ -3,23 +3,15 @@ package database
 import (
 	"fmt"
 	"log"
-	"os"
+
+	"platform/internal/config"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
-func Connect() (*sqlx.DB, error) {
-	connStr := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("DB_SSLMODE"),
-	)
-
+func Connect(cfg *config.Config) (*sqlx.DB, error) {
+	connStr := cfg.GetDBConnString()
 	return sqlx.Connect("postgres", connStr)
 }
 
